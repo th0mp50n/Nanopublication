@@ -1,5 +1,7 @@
 require 'rubygems'
+require 'rdf/turtle'
 require 'rdf/trig'
+require 'rdf/rdfxml'
 
 #RDF::Reader.open("/Users/mark/Downloads/rdf/np-new.trig") do |reader|
 #  reader.each_statement do |statement|
@@ -209,15 +211,23 @@ end
 #  end
 #end
 
-puts RUBY_ENGINE + RUBY_VERSION
+#puts RUBY_ENGINE + RUBY_VERSION
 
-#RDF::TriG::Writer.initialize($stdout, { :base_uri => "http://example.com/" })
+prefixes = {
+    :hg19 => HG19,
+    :rdf => RDF,
+    :rdfs => RDFS,
+    #:riken => RDF::Vocabulary.new("http://riken.org")
+}
+#RDF::RDFXML::Writer.initialize($stdout, { :base_uri => "http://example.com/" })
 
 #thing = RDF::TriG::Writer.buffer(:file_extension => "trig", :prefixes => {
 #    nil => "http://riken.org/",
 #    :hg19 => "http://www.riken.jp/data/rdf/fantom5/cage/hg19/",
 #    :rdfs => "http://rdfs.org/ns/void#"})
 RDF::TriG::Writer.open("testout.rdf") do |writer|
+  writer.prefixes = prefixes
+  writer.base_uri = "http://riken.org"
   writer << Dataset
 end
 
