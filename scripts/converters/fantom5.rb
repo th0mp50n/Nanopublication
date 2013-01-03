@@ -59,14 +59,6 @@ module Nanopublication
 		end
 
 		protected
-		def insertGraph(g, triples)
-			g_uri = g.to_uri
-			for s, p, o in triples do
-				@repository.insert([s.to_uri, p, o, g_uri])
-			end
-		end
-
-		protected
 		def create_class1_nanopub(annotation)
 			if annotation =~ /chr(\d+):(\d+)\.\.(\d+),([#{@@AnnotationSignChars}])/
 				chromosome, start_pos, end_pos, sign = $1, $2, $3, $4
