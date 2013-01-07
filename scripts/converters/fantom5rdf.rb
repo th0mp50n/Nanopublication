@@ -5,6 +5,7 @@ require 'rdf/trig'
 require 'optparse'
 require 'rdf-agraph'
 require_relative 'converter'
+require_relative 'ts_connector'
 
 module Nanopublication # putting everything inside module prevents name-space clashes?
 
@@ -35,6 +36,9 @@ module Nanopublication # putting everything inside module prevents name-space cl
     FirstSample = 7
 
     def initialize(options)
+      ts = TS_connector::VirtuosoConnector.new(options)
+      exit
+
 			default = {
 				:server => 'localhost',
 				:port => 10035,
@@ -48,7 +52,9 @@ module Nanopublication # putting everything inside module prevents name-space cl
 											   :username=>"agraph", :password=>"agraph")
 			@catalog = options[:catalog].nil? ? @server : AllegroGraph::Catalog.new(@server, options[:catalog])
 			@repository = RDF::AllegroGraph::Repository.new(:server=>@catalog, :id=>options[:repository])
-
+      uri        = "http://localhost:8890/sparql"
+      update_uri = "http://localhost:8890/sparql-auth"
+      #@repository = RDF::Virtuoso::Repository.new(uri)
       @repository.clear
 
       @transcriptCounter = 0
@@ -81,19 +87,19 @@ module Nanopublication # putting everything inside module prevents name-space cl
         end
         @row_index += 1
       elsif row =~ /01STAT:MAPPED/
-        #puts "Found MAPPED stats on line #{lineNum}"
+        puts "Found MAPPED stats on line #{lineNum}"
         @sampleInfo["MAPPED"] = row.split("\t").slice(FirstSample,FirstSample+NumSamples)
         #createSamples()
       elsif row =~ /02STAT:NORM_FACTOR/
-        #puts "Found /NORM_FACTOR stats on line #{lineNum}"
+        puts "Found /NORM_FACTOR stats on line #{lineNum}"
         @sampleInfo["NORM_FACTOR"] = row.split("\t").slice(FirstSample,FirstSample+NumSamples)
         #createSamples()
       elsif row =~ /00Annotation/
-        #puts "Found Annotations (list of tissues) on line #{lineNum}"
+        puts "Found Annotations (list of tissues) on line #{lineNum}"
         @sampleInfo["Annotations"] = row.split("\t").slice(FirstSample,FirstSample+NumSamples).map{|tissue| URI.unescape(tissue)}
         #createSamples()
       else
-        #puts "Unused input line: #{lineNum}"
+        puts "Unused input line: #{lineNum}"
       end
     end
 
