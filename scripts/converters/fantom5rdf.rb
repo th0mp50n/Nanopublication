@@ -36,9 +36,6 @@ module Nanopublication # putting everything inside module prevents name-space cl
     FirstSample = 7
 
     def initialize(options)
-      ts = TS_connector::VirtuosoConnector.new(options)
-      exit
-
 			default = {
 				:server => 'localhost',
 				:port => 10035,
@@ -48,17 +45,10 @@ module Nanopublication # putting everything inside module prevents name-space cl
 			options = default.merge(options)
 			super
 
-      @server = AllegroGraph::Server.new(:host=>options[:host], :port=>options[:port],
-											   :username=>"agraph", :password=>"agraph")
-			@catalog = options[:catalog].nil? ? @server : AllegroGraph::Catalog.new(@server, options[:catalog])
-			@repository = RDF::AllegroGraph::Repository.new(:server=>@catalog, :id=>options[:repository])
-      uri        = "http://localhost:8890/sparql"
-      update_uri = "http://localhost:8890/sparql-auth"
-      #@repository = RDF::Virtuoso::Repository.new(uri)
-      @repository.clear
-
       @transcriptCounter = 0
       @sampleInfo = {}
+
+      @ts = TS_connector::AllegroConnector.new(options)
     end
 
 		def convert_header_row(row)
@@ -73,7 +63,7 @@ module Nanopublication # putting everything inside module prevents name-space cl
         annotation, shortDesc, description, transcriptAssociation, geneEntrez, geneHgnc, geneUniprot, *samples = row.split("\t")
         #puts row.split("\t").slice(0,7).join("\t")
         @cagePeak = HG19["CagePeak_"+@row_index.to_s]
-        insertGraph(nil, [
+        @ts.insertGraph(nil, [
             [@cagePeak, RDF.type, CAGERES["CagePeak"]],
             [@cagePeak, VOID.inDataset, RDF::URI.new("http://www.riken.jp/data/rdf/fantom5/cage/hg19")]
         ])
@@ -108,7 +98,7 @@ module Nanopublication # putting everything inside module prevents name-space cl
         #puts "Found complete sample info"
         (0..NumSamples).each do |i|
           sample = HG19["Sample_#{i}"]
-          insertGraph(nil, [
+          @ts.insertGraph(nil, [
               [sample, RDF.type, CAGERES.Sample], # add obo type
               [sample, RDFS.label, @sampleInfo["Annotations"][i]],
               [sample, CAGERES.mapped, @sampleInfo["MAPPED"][i]],
@@ -127,7 +117,7 @@ module Nanopublication # putting everything inside module prevents name-space cl
       end
       chromosome, startI, endI, sign = $1, $2, $3, $4
       genRegion = HG19["GenomicRegion_"+@row_index.to_s]
-      insertGraph(nil, [
+      @ts.insertGraph(nil, [
           [@cagePeak, HG19.annotation, genRegion],
           [genRegion, RDF.label, "GenomicRegion"+@row_index.to_s],
           [genRegion, RDF.type, HG19.GenomicRegion],
@@ -144,11 +134,11 @@ module Nanopublication # putting everything inside module prevents name-space cl
       #puts "shortDesc #{description}"
       if description =~ /,[#{AnnotationSignChars}]/
         #puts "shortDesc is a location annotation"
-        insertGraph(nil, [[@cagePeak, CAGERES.shortDescription, description]])
+        @ts.insertGraph(nil, [[@cagePeak, CAGERES.shortDescription, description]])
       else
         description.split(",").each do |desc|
           #puts "shortDesc #{desc} added"
-          insertGraph(nil, [[@cagePeak, CAGERES.shortDescription, desc]])
+          @ts.insertGraph(nil, [[@cagePeak, CAGERES.shortDescription, desc]])
         end
       end
     end
@@ -156,10 +146,10 @@ module Nanopublication # putting everything inside module prevents name-space cl
     def convertDescription(description)
       #puts "desc #{description}"
       if description =~ /,[#{AnnotationSignChars}]/
-        insertGraph(nil, [[@cagePeak, CAGERES.description, description]])
+        @ts.insertGraph(nil, [[@cagePeak, CAGERES.description, description]])
       else
         description.split(",").each do |desc|
-          insertGraph(nil, [[@cagePeak, CAGERES.description, desc]])
+          @ts.insertGraph(nil, [[@cagePeak, CAGERES.description, desc]])
         end
       end
     end
@@ -174,7 +164,7 @@ module Nanopublication # putting everything inside module prevents name-space cl
         #puts "transcriptAssociation #{transcriptAssociation}"
         transcriptAssociation.split(",").each do |tA|
           transcript = HG19["Transcript_"+@transcriptCounter.to_s]
-          insertGraph(nil,[
+          @ts.insertGraph(nil,[
               [transcript, CAGERES.transcriptAssociation, transcript],
               [transcript, RDF.type, HG19.Transcript],
               [transcript, RDFS.label, tA],
@@ -199,14 +189,14 @@ module Nanopublication # putting everything inside module prevents name-space cl
       if ids.length == 1 and ids[0] != "NA" # suppress creating triples when more than 1 Entrez-geneID
         name = geneAssocName(shortDesc)
         #puts "geneAssociation: \"#{shortDesc}\" gets ID \"#{name}\""
-        insertGraph(nil, [
+        @ts.insertGraph(nil, [
             [@cagePeak, CAGERES.geneAssociation, HG19[name]],
             [HG19[name], RDF.type, CAGERES.Gene],
             [HG19[name], RDFS.label, name],
             [HG19[name], HG19.entrezGeneId, geneEntrez]
         ])
-        geneHgnc.split(",").select {|id| id != "NA"}.each {|id| insertGraph(nil, [[HG19[name], CAGERES.hgncId, id]])}
-        geneUniprot.split(",").select {|id| id != "NA"}.each {|id| insertGraph(nil, [[HG19[name], CAGERES.uniprotId, id]])}
+        geneHgnc.split(",").select {|id| id != "NA"}.each {|id| @ts.insertGraph(nil, [[HG19[name], CAGERES.hgncId, id]])}
+        geneUniprot.split(",").select {|id| id != "NA"}.each {|id| @ts.insertGraph(nil, [[HG19[name], CAGERES.uniprotId, id]])}
       else
         #puts "None or multiple EntrezGene IDs in row #{@row_index}"
       end
@@ -216,7 +206,7 @@ module Nanopublication # putting everything inside module prevents name-space cl
       #puts "sample #{sample}"
       sampleValueString = "Row#{@row_index}Value#{sampleNum}"
       sampleValue = HG19[sampleValueString]
-      insertGraph(nil, [
+      @ts.insertGraph(nil, [
           [@cagePeak, HG19.sampleValue, sampleValue],
           [sampleValue, RDF.type, CAGERES.SampleValue],
           [sampleValue, RDFS.label, sampleValueString],

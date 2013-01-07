@@ -9,7 +9,7 @@ module TS_connector
       puts "setting up connection"
     end
 
-    def insertGraph()
+    def insertGraph(g, triples)
       puts "inserting into graph"
     end
 
@@ -44,19 +44,13 @@ module TS_connector
     end
 
     def insertGraph(g, triples) # make g an optional argument?
-      @tripleCache.push(*triples)
-      if @tripleCache.length < 100
-        return
-      else
-        for s, p, o in @tripleCache do
-          if g.nil?
-            @repository.insert([s.to_uri, p, o])
-          else
-            @repository.insert([s.to_uri, p, o, g.to_uri])
-          end
+      for s, p, o in triples do
+        if g.nil?
+          @repository.insert([s.to_uri, p, o])
+        else
+          @repository.insert([s.to_uri, p, o, g.to_uri])
         end
-        print_load_stats(@tripleCache.length())
-        @tripleCache = Array.new()
+        #print_load_stats(@tripleCache.length())
       end
     end
   end
@@ -75,17 +69,11 @@ module TS_connector
       @repository = RDF::Virtuoso::Repository.new(uri)
     end
 
-    def insertGraphV(g, triples)
-      @tripleCache.push(triples)
-      if @tripleCache.length < 1000
-        return
-      else
-        query = RDF::Virtuoso::Query
-        query = query.insert_data(*triples).graph(RDF::URI.new("http://test.com"))
-        @repository.insert(query)
-        print_load_stats(@tripleCache.length())
-        @tripleCache = Array.new()
-      end
+    def insertGraph(g, triples) # how to deal with no/default graph in ruby-virtuoso?
+      query = RDF::Virtuoso::Query
+      query = query.insert_data(*triples).graph(RDF::URI.new("http://test.com"))
+      @repository.insert(query)
+      #print_load_stats(@tripleCache.length())
     end
   end
 
